@@ -1,0 +1,79 @@
+Description:  "Sample template to deploy Kendra"
+
+Resources:
+    KendraDataBucket:
+        Type: AWS::S3::Bucket
+        Properties:
+            BucketName: kendradatasourceforfsdemo
+    
+    KendraInstance:
+        Type: AWS::Kendra::Index
+        Properties: 
+          Description: Supporting RAG for LLMs
+          Edition: DEVELOPER_EDITION
+          Name: FSHelpPagesIndex
+          RoleArn: 
+            !GetAtt
+                - IamRoleForKendra
+                - Arn
+          
+    KendraDataSource:
+        Type: AWS::Kendra::DataSource
+        Properties:
+            Name: FSHelpDocsRepo
+            IndexId: !Ref KendraInstance
+            RoleArn: 
+                !GetAtt
+                    - IamRoleForKendra
+                    - Arn
+            Type: S3
+            DataSourceConfiguration:
+                 S3Configuration:
+                    BucketName: !Ref KendraDataBucket
+          
+    IamRoleForKendra:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: IamRoleForKendra
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                        Service: 
+                         - kendra.amazonaws.com
+                      Action:
+                        - 'sts:AssumeRole'
+            Path: /
+            Policies:
+                - PolicyName: kendraAccessPolicy
+                  PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                    - Effect: Allow
+                      Action: cloudwatch:PutMetricData
+                      Resource: "*"
+                      Condition:
+                        StringEquals:
+                          cloudwatch:namespace: AWS/Kendra
+                    - Effect: Allow
+                      Action: logs:DescribeLogGroups
+                      Resource: "*"
+                    - Effect: Allow
+                      Action: logs:CreateLogGroup
+                      Resource: 
+                        Fn::Sub: 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kendra/*' 
+                    - Effect: Allow
+                      Action:
+                      - logs:DescribeLogStreams
+                      - logs:CreateLogStream
+                      - logs:PutLogEvents
+                      Resource: 
+                        Fn::Sub: 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kendra/*' 
+                    - Effect: Allow
+                      Action: s3:GetObject
+                      Resource:
+                        !GetAtt 
+                            - KendraDataBucket
+                            - Arn
+        
