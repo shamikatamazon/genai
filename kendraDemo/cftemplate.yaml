@@ -88,8 +88,6 @@ Resources:
                       Action: 
                       - kendra:BatchPutDocument
                       - kendra:BatchDeleteDocument
-                      Resource:
-                        !GetAtt
-                          - KendraInstance
-                          - Arn
+                      Resource: '*'
+                        
         
