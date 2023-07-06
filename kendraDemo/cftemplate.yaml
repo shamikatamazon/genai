@@ -73,7 +73,23 @@ Resources:
                     - Effect: Allow
                       Action: s3:GetObject
                       Resource:
-                        !GetAtt 
+                        !Join 
+                            - ''
+                            - - 'arn:aws:s3:::'
+                              - !Ref KendraDataBucket
+                              - /*
+                    - Effect: Allow
+                      Action: s3:ListBucket
+                      Resource:
+                        !GetAtt
                             - KendraDataBucket
                             - Arn
+                    - Effect: Allow
+                      Action: 
+                      - kendra:BatchPutDocument
+                      - kendra:BatchDeleteDocument
+                      Resource:
+                        !GetAtt
+                          - KendraInstance
+                          - Arn
         
