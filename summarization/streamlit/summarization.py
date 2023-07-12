@@ -49,7 +49,11 @@ logger.addHandler(file_handler)
 
 content_handler = ContentHandler()
 
-def generate_response(input_text):
+def generate_response(input_text, chunk_size, max_token):
+    
+  chunkSize = int(chunk_size)
+  maxTokens = int(max_token)
+    
   llm2 = SagemakerEndpoint(
     endpoint_name="hf-llm-falcon-40b-instruct-bf16-2023-06-23-19-34-33-102",
     #endpoint_name="hf-llm-falcon-7b-bf16-2023-06-24-20-08-14-262",
@@ -58,13 +62,12 @@ def generate_response(input_text):
          "parameters" : {"do_sample": False,
         "top_p": 0.9,
         "temperature": 0.1,
-        "max_new_tokens": 200
+        "max_new_tokens": maxTokens
                   }},
     region_name="us-east-1",
     content_handler=content_handler
   )
   
-  chunkSize = int(chunk_size)
   
   text_splitter = RecursiveCharacterTextSplitter(
     # Set a really small chunk size, just to show.
@@ -76,13 +79,15 @@ def generate_response(input_text):
   docs = text_splitter.create_documents([input_text])
   #st.info(docs)
   
-  map_prompt_template = """Write a short sentence single line summary for following text:
+  map_prompt_template = """
     {text}
-    Summary:"""
+    Write a short sentence single line summary for the above text:
+    >>SUMMARY<<:"""
 
-  reduce_prompt_template = """Write a summary paragraph of the following:
+  reduce_prompt_template = """
     {text}
-    Summary:"""
+    Write a summary paragraph of the above:
+    >>SUMMARY<<:"""
   
   MAP_PROMPT = PromptTemplate(template=map_prompt_template, input_variables=["text"])
   REDUCE_PROMPT = PromptTemplate(template=reduce_prompt_template, input_variables=["text"])
@@ -94,15 +99,16 @@ def generate_response(input_text):
   output = chain({"input_documents": docs}, return_only_outputs=True)
   
   logger.info(output)
-  st.info(output['output_text'])
+  st.info(output)
   
 
 with st.form('my_form'):
+  max_token = st.text_input("Max number of tokens", value="200")    
   chunk_size = st.text_input("Document Chunk size ", value="4000")    
   text = st.text_area('Enter text for summarization')
   submitted = st.form_submit_button('Submit')
   if submitted:
-    generate_response(text)
+    generate_response(text, chunk_size,max_token )
     
 
 with st.sidebar:
@@ -110,5 +116,7 @@ with st.sidebar:
   add_markdown= st.markdown('This page will summarize a document using the map-reduce chain')
   add_markdown= st.markdown('You can enter a blurb of text and then play around with the document chunk size.')
   add_markdown= st.markdown('Since the token size for Falcon is only 1024 input tokens, the document is split into multiple chunks, each chunk is summarized and then there is an overall summary presented to the user')
+
+  
   
   
