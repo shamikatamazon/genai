@@ -1,1 +1,1 @@
-# genai
+# Using RAG with Kendra 

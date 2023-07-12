@@ -74,7 +74,7 @@ def generate_response(input_text):
 
   prompt_template = """
   {context}
-  >>QUESTION<<: {question}
+  >>QUESTION<<: using only the text above answer the question '{question}'
   >>ANSWER<<:"""
   
   PROMPT = PromptTemplate(
@@ -92,7 +92,11 @@ def generate_response(input_text):
   logger.info(output)
   st.info(output['output_text'])
   st.subheader("RAG data obtained from Kendra")
-  st.info(output['input_documents'])
+  #st.info(output['input_documents'])
+  
+  for doc in output['input_documents']:
+    st.info(doc)
+  
 
 with st.form('my_form'):
   text = st.text_area('Enter your query:', 'How do I charge my iPhone?')
