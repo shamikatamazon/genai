@@ -3,6 +3,8 @@ from langchain.llms import OpenAI
 import logging
 import sys
 import boto3
+from streamlit import runtime
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 
 st.title('Fruitstand Support App - Using Claude/Bedrock')
@@ -30,30 +32,77 @@ kendra_retriever = AmazonKendraRetriever(
 )
 
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
-file_handler = logging.FileHandler('kendra-queries-claude.log')
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
+
+def get_remote_ip() -> str:
+    """Get remote ip."""
+
+    try:
+        ctx = get_script_run_ctx()
+        if ctx is None:
+            return None
+
+        session_info = runtime.get_instance().get_client(ctx.session_id)
+        if session_info is None:
+            return None
+    except Exception as e:
+        return None
+
+    return session_info.request.remote_ip
+
+class ContextFilter(logging.Filter):
+    def filter(self, record):
+        record.user_ip = get_remote_ip()
+        return super().filter(record)
 
 
-logger.addHandler(file_handler)
+def init_logging():
+    # Make sure to instanciate the logger only once
+    # otherwise, it will create a StreamHandler at every run
+    # and duplicate the messages
 
+    # create a custom logger
+    logger = logging.getLogger("claude-bedrock")
+    logger.setLevel(logging.INFO)
 
-def generate_response(input_text):
+    if logger.handlers:  # logger is already setup, don't setup again
+        return
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    # in the formatter, use the variable "user_ip"
+    formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s [user_ip=%(user_ip)s] - %(message)s")
+    handler = logging.FileHandler('claude-access.log')
+    handler.setLevel(logging.INFO)
+    handler.addFilter(ContextFilter())
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     
+    
+
+
+def generate_response(input_text,maxTokensToSample,temp, topK, topP, doRag, modelSelection):
+  
+  if (modelSelection=="Claude"):
+    selectedModel = "anthropic.claude-v1"
+    modelArgs = {'max_tokens_to_sample': int(maxTokensToSample), 'temperature':float(temp), "top_k":int(topK),"top_p": float(topP),"stop_sequences":[]}
+  elif (modelSelection == "Jurassic Jumbo Instruct"):
+    selectedModel = "ai21.j2-jumbo-instruct"
+    modelArgs = {'maxTokens': int(maxTokensToSample), 'temperature':float(temp), "topP": float(topP)}
+  elif (modelSelection == "Jurassic Grande Instruct"):
+    selectedModel = "ai21.j2-grande-instruct"
+    modelArgs = {'maxTokens': int(maxTokensToSample), 'temperature':float(temp), "topP": float(topP)}
+  
+      
   llm2 = Bedrock(
-    model_id="anthropic.claude-v1",
-    model_kwargs={'max_tokens_to_sample': int(maxTokensToSample), 'temperature':float(temp), "top_k":int(topK),"top_p": float(topP),"stop_sequences":[]}
-    )
+    model_id= selectedModel,
+    model_kwargs=modelArgs
+  )
     
   
   llm_query= input_text
 
   prompt_template = """
   {context}
-  use the information above to answer the question {question}"""
+  {question}"""
   
   PROMPT = PromptTemplate(
       template=prompt_template, input_variables=["context", "question"]
@@ -66,35 +115,42 @@ def generate_response(input_text):
   if doRag:
     docs = kendra_retriever.get_relevant_documents(llm_query)
   
-  #logger.info(docs)
   logger.info("query:" + llm_query)
-  logger.info("params "+ maxTokensToSample + " " + temp + " " + topK + " " + topP )
+  logger.info("params "+ maxTokensToSample + " " + temp + " " + topK + " " + topP + " " + str(doRag) + " " +  selectedModel)
   
   output = chain({"input_documents":docs, "question": llm_query}, return_only_outputs=False)
-  #logger.info(output)
   st.info(output['output_text'])
   st.subheader("RAG data obtained from Kendra")
-  #st.info(output['input_documents'])
   
   for doc in output['input_documents']:
     st.info(doc)
   
 
-with st.form('my_form'):
-  doRag = st.checkbox("RAG - Kendra" , value=True)
-  
-  maxTokensToSample = st.text_input("max tokens to sample", 300)
-  temp = st.text_input("temperature", 0.5)
-  topK = st.text_input("top_k", 250)
-  topP = st.text_input("top_p", 0.5)
-  text = st.text_area('Enter your query:', 'How do I charge my iPhone?')
-  submitted = st.form_submit_button('Submit')
-  if submitted:
-    generate_response(text)
-    
+def main():
 
-with st.sidebar:
-  add_markdown= st.subheader('About the demo')
-  add_markdown= st.markdown('This is a sample application that uses **Bedrock** with RAG using Kendra. Data for RAG is from the Apple support pages')
-  add_markdown= st.markdown('You can ask questions like **:blue["my iphone screen is broken, how can I fix it"]** or **:blue["how do I change the wallpaper on my iphone"]**')
-  add_markdown= st.markdown('**WARNING** This website is for demo purposes only and only publicly available information should be shared in the input prompts')
+  with st.form('my_form'):
+    doRag = st.checkbox("RAG - Kendra" , value=True)
+    modelSelection = st.selectbox('Which LLM model would you like for inference?', ('Claude', 'Jurassic Grande Instruct', 'Jurassic Jumbo Instruct'))
+  
+    
+    maxTokensToSample = st.text_input("max tokens to sample", 300)
+    temp = st.text_input("temperature", 0.5)
+    topK = st.text_input("top_k - Does not apply for Jurassic models", 250)
+    topP = st.text_input("top_p", 0.5)
+    text = st.text_area('Enter your query:', 'How do I charge my iPhone?')
+    submitted = st.form_submit_button('Submit')
+    if submitted:
+      generate_response(text, maxTokensToSample, temp, topK, topP, doRag, modelSelection)
+      
+  with st.sidebar:
+    add_markdown= st.subheader('About the demo')
+    add_markdown= st.markdown('This is a sample application that uses **Bedrock** with RAG using Kendra. Data for RAG is from the Apple support pages')
+    add_markdown= st.markdown('You can ask questions like **:blue["my iphone screen is broken, how can I fix it"]** or **:blue["how do I change the wallpaper on my iphone"]**')
+    add_markdown= st.markdown('**WARNING** This website is for demo purposes only and only publicly available information should be shared in the input prompts')
+
+
+if __name__ == "__main__":
+    init_logging()
+
+    logger = logging.getLogger("claude-bedrock")
+    main()
