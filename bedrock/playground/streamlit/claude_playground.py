@@ -129,7 +129,7 @@ def generate_response(input_text,maxTokensToSample,temp, topK, topP, doRag, mode
 def main():
 
   with st.form('my_form'):
-    doRag = st.checkbox("RAG - Kendra" , value=True)
+    doRag = st.checkbox("RAG - Kendra" , value=False)
     modelSelection = st.selectbox('Which LLM model would you like for inference?', ('Claude', 'Jurassic Grande Instruct', 'Jurassic Jumbo Instruct'))
   
     
