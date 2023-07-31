@@ -41,10 +41,11 @@ def log_request_info():
 @app.route('/bedrock-anthropic', methods=['POST'])
 def main():
     
-    app.logger.info("query: " + str(request.data))
+    
     
     topk = request.args.get('topk')
-    query = request.get_data().decode()
+    query = request.get_data().decode('utf-8')
+    query = query.strip()
     #print(query)
     
     
@@ -73,28 +74,14 @@ def main():
     modelArgs = {'max_tokens_to_sample': int(maxTokensToSample), 'temperature':float(temperature), "top_k":int(topk),"top_p": float(topP),"stop_sequences":[]}
     
     llm2 = Bedrock(model_id="anthropic.claude-v1",model_kwargs=modelArgs)
-    #llm_query= "my airpods are not connecting to the iphone, how do I fix that "
-    llm_query = query
-    prompt_template = """
-        {context}
-        {question}
-          """
-          
-    PROMPT = PromptTemplate(
-          template=prompt_template, input_variables=["context", "question"]
-      )
-  
-    chain = load_qa_chain(llm=llm2, prompt=PROMPT)
     
-    output = chain({"input_documents":"", "question": llm_query}, return_only_outputs=False)
+    app.logger.info("args: " + json.dumps(modelArgs))
+    app.logger.info("query: " + query)
     
-    #print(output['output_text'])
-    #print(topk)
-
-    #topk= "abc"
-    #topk = request.args.get('topk')
-    #return("Web app with flask ")
-    return(output['output_text'])
+    output = llm2.predict(query)
+    
+    
+    return(output)
     
 
 
