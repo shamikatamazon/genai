@@ -81,8 +81,11 @@ def init_logging():
 
 def generate_response(input_text,maxTokensToSample,temp, topK, topP, doRag, modelSelection):
   
-  if (modelSelection=="Claude"):
+  if (modelSelection=="Claude v1"):
     selectedModel = "anthropic.claude-v1"
+    modelArgs = {'max_tokens_to_sample': int(maxTokensToSample), 'temperature':float(temp), "top_k":int(topK),"top_p": float(topP),"stop_sequences":[]}
+  elif (modelSelection=="Claude v2"):
+    selectedModel = "anthropic.claude-v2"
     modelArgs = {'max_tokens_to_sample': int(maxTokensToSample), 'temperature':float(temp), "top_k":int(topK),"top_p": float(topP),"stop_sequences":[]}
   elif (modelSelection == "Jurassic Jumbo Instruct"):
     selectedModel = "ai21.j2-jumbo-instruct"
@@ -130,7 +133,7 @@ def main():
 
   with st.form('my_form'):
     doRag = st.checkbox("RAG - Kendra" , value=False)
-    modelSelection = st.selectbox('Which LLM model would you like for inference?', ('Claude', 'Jurassic Grande Instruct', 'Jurassic Jumbo Instruct'))
+    modelSelection = st.selectbox('Which LLM model would you like for inference?', ('Claude v1', 'Jurassic Grande Instruct', 'Jurassic Jumbo Instruct', "Claude v2"))
   
     
     maxTokensToSample = st.text_input("max tokens to sample", 300)
