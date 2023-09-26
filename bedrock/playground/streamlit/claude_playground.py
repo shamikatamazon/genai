@@ -5,6 +5,10 @@ import sys
 import boto3
 from streamlit import runtime
 from streamlit.runtime.scriptrunner import get_script_run_ctx
+import yaml
+from yaml.loader import SafeLoader
+import streamlit as st
+import streamlit_authenticator as stauth
 
 
 st.title('Fruitstand Support App - Using Claude/Bedrock')
@@ -103,9 +107,12 @@ def generate_response(input_text,maxTokensToSample,temp, topK, topP, doRag, mode
   
   llm_query= input_text
 
-  prompt_template = """
+  prompt_template = """Human:
   {context}
-  {question}"""
+  {question}
+  
+  Assistant:
+  """
   
   PROMPT = PromptTemplate(
       template=prompt_template, input_variables=["context", "question"]
@@ -130,27 +137,53 @@ def generate_response(input_text,maxTokensToSample,temp, topK, topP, doRag, mode
   
 
 def main():
-
-  with st.form('my_form'):
-    doRag = st.checkbox("RAG - Kendra" , value=False)
-    modelSelection = st.selectbox('Which LLM model would you like for inference?', ('Claude v1', 'Jurassic Grande Instruct', 'Jurassic Jumbo Instruct', "Claude v2"))
   
-    
-    maxTokensToSample = st.text_input("max tokens to sample", 300)
-    temp = st.text_input("temperature", 0.5)
-    topK = st.text_input("top_k - Does not apply for Jurassic models", 250)
-    topP = st.text_input("top_p", 0.5)
-    text = st.text_area('Enter your query:', 'How do I charge my iPhone?')
-    submitted = st.form_submit_button('Submit')
-    if submitted:
-      generate_response(text, maxTokensToSample, temp, topK, topP, doRag, modelSelection)
-      
-  with st.sidebar:
-    add_markdown= st.subheader('About the demo')
-    add_markdown= st.markdown('This is a sample application that uses **Bedrock** with RAG using Kendra. Data for RAG is from the Apple support pages')
-    add_markdown= st.markdown('You can ask questions like **:blue["my iphone screen is broken, how can I fix it"]** or **:blue["how do I change the wallpaper on my iphone"]**')
-    add_markdown= st.markdown('**WARNING** This website is for demo purposes only and only publicly available information should be shared in the input prompts')
+  
+  with open('authConfig.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+  
+  
+  authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
+  )
 
+  name, authentication_status, username = authenticator.login('Login', 'main')
+    
+  if authentication_status:
+    authenticator.logout('Logout', 'main', key='unique_key')
+    st.write(f'Welcome *{name}*')
+    st.title('Some content')
+  
+
+    with st.form('my_form'):
+      doRag = st.checkbox("RAG - Kendra" , value=False)
+      modelSelection = st.selectbox('Which LLM model would you like for inference?', ('Claude v1', 'Jurassic Grande Instruct', 'Jurassic Jumbo Instruct', "Claude v2"))
+    
+      
+      maxTokensToSample = st.text_input("max tokens to sample", 300)
+      temp = st.text_input("temperature", 0.5)
+      topK = st.text_input("top_k - Does not apply for Jurassic models", 250)
+      topP = st.text_input("top_p", 0.5)
+      text = st.text_area('Enter your query:', 'How do I charge my iPhone?')
+      submitted = st.form_submit_button('Submit')
+      if submitted:
+        generate_response(text, maxTokensToSample, temp, topK, topP, doRag, modelSelection)
+        
+    with st.sidebar:
+      add_markdown= st.subheader('About the demo')
+      add_markdown= st.markdown('This is a sample application that uses **Bedrock** with RAG using Kendra. Data for RAG is from the Apple support pages')
+      add_markdown= st.markdown('You can ask questions like **:blue["my iphone screen is broken, how can I fix it"]** or **:blue["how do I change the wallpaper on my iphone"]**')
+      add_markdown= st.markdown('**WARNING** This website is for demo purposes only and only publicly available information should be shared in the input prompts')
+
+  elif authentication_status is False:
+    st.error('Username/password is incorrect')
+  elif authentication_status is None:
+    st.warning('Please enter your username and password')
+  
 
 if __name__ == "__main__":
     init_logging()
