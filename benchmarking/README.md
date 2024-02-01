@@ -1,4 +1,4 @@
-# A script to benchmark model performance 
+# A quick and scrappy way to benchmark model performance and observe LLM performance
 
 Before deploying models to production, we need to understand the latency and throughput of an LLM to accurately deploy infrastructure to support traffic patterns. Given the expense and paucity of GPUs, its important we are able to squeeze out every bit of performance from our GPUs and ensure instances are right-sized to minimize GPU idle time. The scripts below provide a simple way to quickly test and approximate the performance of a model. 
 
