@@ -168,3 +168,8 @@ Log back into the EC2 instance hosting prometheus and edit the prometheus.conf f
 
 Restart prometheus to load the new config and go to the Grafana dashboard, you will see all the graphs in the dashboard reporting metrics. 
 
+## Benchmarking a model deployed with hugging-face pipelines
+
+The [script](benchmark_hf_model.py) is an example of deploying a model using huggingface pipelines and benchmarking performance. A model is deployed using pipelines, and then inference is performed on the model, where inference time and input/output tokens are calculated and reported to prometheus. Grafana is then used for building dashboards to view the metrics. 
+
+Use the same instructions as ```Viewing metrics in Grafana``` section to deploy the dashboard, except swap out the [Grafana Dashboard json](grafanaDashboard.json) with [Grafana Dashboard Huggingface json](grafanaDashboard_hf.json)
